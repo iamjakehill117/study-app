@@ -274,10 +274,28 @@ textarea:focus {
 .doc-list,
 .concept-list {
   display: grid;
-  gap: 8px;
+  gap: 7px;
   margin-top: 10px;
   max-height: 34vh;
   overflow: auto;
+}
+
+.doc-tree-row {
+  --depth: 0;
+  position: relative;
+  padding-left: calc(var(--depth) * 18px);
+}
+
+.doc-tree-row.is-child::before {
+  content: "";
+  position: absolute;
+  left: calc((var(--depth) * 18px) - 10px);
+  top: -7px;
+  width: 12px;
+  height: 22px;
+  border-left: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong);
+  border-radius: 0 0 0 5px;
 }
 
 .doc-item,
@@ -292,10 +310,40 @@ textarea:focus {
   gap: 3px;
 }
 
+.doc-tree-row .doc-item {
+  width: 100%;
+  position: relative;
+}
+
 .doc-item.is-active {
   border-color: var(--accent);
   box-shadow: inset 3px 0 0 var(--accent);
   background: #fff;
+}
+
+.doc-item.is-context {
+  background: #fbfaf7;
+  opacity: 0.82;
+}
+
+.doc-node-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.doc-node-badge {
+  flex: 0 0 auto;
+  min-width: 38px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 2px 7px;
+  color: var(--accent-dark);
+  background: #fff;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-align: center;
 }
 
 .doc-item strong,
@@ -304,7 +352,7 @@ textarea:focus {
   font-size: 0.92rem;
 }
 
-.doc-item span,
+.doc-node-meta,
 .concept-item span {
   color: var(--muted);
   font-size: 0.8rem;

@@ -150,7 +150,7 @@ function createCodexRequest({ label, parentDoc, reason, source }) {
   updateRequestHash(request);
   renderRequestPanel();
   emphasizeRequestPanel();
-  showNotice("Codex生成依頼を作りました。このチャットで「生成して」と送ってください。");
+  showNotice("生成依頼を作りました。");
 }
 
 function buildCodexPrompt(request, parentDoc) {
@@ -223,29 +223,153 @@ function render() {
 
 function renderDocList() {
   const query = conceptKey(els.searchInput.value || "");
-  const docs = Object.values(state.data.docs)
-    .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))
-    .filter((doc) => !query || conceptKey(`${doc.title} ${doc.summary}`).includes(query));
+  const tree = buildDocTree();
+  const allDocs = Object.values(state.data.docs);
+  const matchedIds = new Set(
+    query ? allDocs.filter((doc) => docMatchesQuery(doc, query)).map((doc) => doc.id) : allDocs.map((doc) => doc.id)
+  );
+  const visibleIds = query ? collectVisibleDocIds(matchedIds, tree) : new Set(allDocs.map((doc) => doc.id));
 
   els.docList.innerHTML = "";
-  if (!docs.length) {
+  if (!visibleIds.size) {
     const empty = document.createElement("p");
     empty.className = "muted small";
-    empty.textContent = "文書はまだありません。";
+    empty.textContent = "一致する文書はありません。";
     els.docList.append(empty);
     return;
   }
 
+  const renderedIds = new Set();
+  tree.roots
+    .filter((doc) => visibleIds.has(doc.id))
+    .forEach((doc) => {
+      appendDocTreeItem(doc, 0, tree, visibleIds, matchedIds, renderedIds, Boolean(query));
+    });
+
+  allDocs
+    .filter((doc) => visibleIds.has(doc.id) && !renderedIds.has(doc.id))
+    .sort(sortDocsByTitle)
+    .forEach((doc) => {
+      appendDocTreeItem(doc, 0, tree, visibleIds, matchedIds, renderedIds, Boolean(query));
+    });
+}
+
+function buildDocTree() {
+  const docs = Object.values(state.data.docs);
+  const childrenByParent = new Map();
+  const parentById = new Map();
+
   docs.forEach((doc) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `doc-item ${doc.id === state.currentId ? "is-active" : ""}`;
-    button.innerHTML = "<strong></strong><span></span>";
-    button.querySelector("strong").textContent = doc.title;
-    button.querySelector("span").textContent = `${doc.elements.length} 要素 / 親 ${doc.parentLinks.length}`;
-    button.addEventListener("click", () => openDoc(doc.id));
-    els.docList.append(button);
+    const parent = primaryParentLink(doc);
+    if (!parent || !state.data.docs[parent.docId] || parent.docId === doc.id) return;
+    parentById.set(doc.id, parent);
+    if (!childrenByParent.has(parent.docId)) {
+      childrenByParent.set(parent.docId, []);
+    }
+    childrenByParent.get(parent.docId).push(doc);
   });
+
+  childrenByParent.forEach((children, parentId) => {
+    children.sort((a, b) => sortDocsByParentOrder(parentId, a, b));
+  });
+
+  const roots = docs
+    .filter((doc) => !parentById.has(doc.id))
+    .sort(sortDocsByTitle);
+
+  return { roots, childrenByParent, parentById };
+}
+
+function primaryParentLink(doc) {
+  return doc.parentLinks && doc.parentLinks.length ? doc.parentLinks[0] : null;
+}
+
+function docMatchesQuery(doc, query) {
+  if (!query) return true;
+  const aliases = doc.aliases || [];
+  const elements = (doc.elements || []).map((element) => `${element.label} ${element.reason || ""}`);
+  return conceptKey([doc.title, doc.key, doc.summary, ...aliases, ...elements].join(" ")).includes(query);
+}
+
+function collectVisibleDocIds(matchedIds, tree) {
+  const visibleIds = new Set();
+  matchedIds.forEach((id) => {
+    addAncestors(id, tree, visibleIds);
+    addDescendants(id, tree, visibleIds);
+  });
+  return visibleIds;
+}
+
+function addAncestors(docId, tree, visibleIds) {
+  const seen = new Set();
+  let currentId = docId;
+  while (currentId && !seen.has(currentId) && state.data.docs[currentId]) {
+    seen.add(currentId);
+    visibleIds.add(currentId);
+    currentId = tree.parentById.get(currentId)?.docId || null;
+  }
+}
+
+function addDescendants(docId, tree, visibleIds) {
+  if (!state.data.docs[docId]) return;
+  visibleIds.add(docId);
+  (tree.childrenByParent.get(docId) || []).forEach((child) => addDescendants(child.id, tree, visibleIds));
+}
+
+function appendDocTreeItem(doc, depth, tree, visibleIds, matchedIds, renderedIds, isFiltered) {
+  if (renderedIds.has(doc.id)) return;
+  renderedIds.add(doc.id);
+  const children = (tree.childrenByParent.get(doc.id) || []).filter((child) => visibleIds.has(child.id));
+  const parent = tree.parentById.get(doc.id);
+  const wrapper = document.createElement("div");
+  wrapper.className = `doc-tree-row ${depth > 0 ? "is-child" : "is-root"}`;
+  wrapper.style.setProperty("--depth", String(Math.min(depth, 5)));
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `doc-item ${doc.id === state.currentId ? "is-active" : ""}`;
+  if (isFiltered && !matchedIds.has(doc.id)) {
+    button.classList.add("is-context");
+  }
+  button.innerHTML = `
+    <span class="doc-node-title">
+      <span class="doc-node-badge"></span>
+      <strong></strong>
+    </span>
+    <span class="doc-node-meta"></span>
+  `;
+  button.querySelector(".doc-node-badge").textContent = parent ? "子" : children.length ? "親" : "ルート";
+  button.querySelector("strong").textContent = doc.title;
+  button.querySelector(".doc-node-meta").textContent = formatDocTreeMeta(doc, parent, children.length);
+  button.addEventListener("click", () => openDoc(doc.id));
+  wrapper.append(button);
+  els.docList.append(wrapper);
+
+  children.forEach((child) => {
+    appendDocTreeItem(child, depth + 1, tree, visibleIds, matchedIds, renderedIds, isFiltered);
+  });
+}
+
+function formatDocTreeMeta(doc, parent, childCount) {
+  const childText = childCount ? `子 ${childCount}` : "子なし";
+  if (!parent) {
+    return `ルート文書 / ${childText} / ${doc.elements.length} 要素`;
+  }
+  const parentTitle = state.data.docs[parent.docId]?.title || parent.title || "親文書";
+  return `親 ${parentTitle} > ${parent.elementLabel || doc.title} / ${childText}`;
+}
+
+function sortDocsByParentOrder(parentId, a, b) {
+  const parent = state.data.docs[parentId];
+  const aIndex = parent?.elements?.findIndex((element) => element.linkedDocId === a.id) ?? -1;
+  const bIndex = parent?.elements?.findIndex((element) => element.linkedDocId === b.id) ?? -1;
+  const safeA = aIndex < 0 ? Number.MAX_SAFE_INTEGER : aIndex;
+  const safeB = bIndex < 0 ? Number.MAX_SAFE_INTEGER : bIndex;
+  return safeA - safeB || sortDocsByTitle(a, b);
+}
+
+function sortDocsByTitle(a, b) {
+  return a.title.localeCompare(b.title, "ja");
 }
 
 function renderConceptList() {
@@ -270,7 +394,7 @@ function renderCurrentDocument() {
   if (!doc) {
     els.breadcrumb.textContent = "";
     els.docTitle.textContent = "文書がありません";
-    els.docSummary.textContent = "題材を入力するとCodex生成依頼を作れます。";
+    els.docSummary.textContent = "題材を入力すると新しい文書の候補を作れます。";
     els.documentBody.innerHTML = "";
     els.elementList.innerHTML = "";
     els.elementSection.hidden = true;
@@ -309,7 +433,7 @@ function renderElements(doc) {
     button.querySelector(".category").textContent = element.category || "その他";
     button.querySelector(".difficulty").textContent = element.difficulty || "標準";
     const linkedTag = button.querySelector(".linked-state");
-    linkedTag.textContent = linkedDoc ? "文書あり" : "Codex依頼";
+    linkedTag.textContent = linkedDoc ? "文書あり" : "未作成";
     linkedTag.classList.toggle("linked", Boolean(linkedDoc));
     button.addEventListener("click", () => {
       if (linkedDoc) {
@@ -358,12 +482,12 @@ function renderRequestPanel() {
   const request = state.pendingRequest;
   els.requestPanel.hidden = !request;
   if (!request) return;
-  els.requestTitle.textContent = `「${request.label}」をCodexで生成`;
+  els.requestTitle.textContent = `「${request.label}」の生成依頼`;
   els.requestMeta.textContent = request.parentTitle
     ? `親文書: ${request.parentTitle}`
     : "ルート文書として作成";
   els.requestPrompt.value = request.prompt;
-  els.copyStatus.textContent = "生成依頼が作成されています。依頼文をコピーして、このチャットに貼り付けてください。";
+  els.copyStatus.textContent = "生成依頼が作成されています。";
   els.copyStatus.className = "copy-status";
 }
 

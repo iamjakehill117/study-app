@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Codex学習Wiki</title>
+    <title>学習Wiki</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -12,31 +12,20 @@
         <div class="brand">
           <div class="brand-mark" aria-hidden="true">Cx</div>
           <div>
-            <h1>Codex学習Wiki</h1>
-            <p>APIなし。範囲選択からCodex生成依頼を作り、文書をつないで学ぶ。</p>
+            <h1>学習Wiki</h1>
+            <p>題材を分解し、必要な要素へ進みながら理解を深める。</p>
           </div>
         </div>
 
         <form class="topic-form" id="topicForm">
           <label class="sr-only" for="topicInput">題材</label>
           <input id="topicInput" type="text" value="CFD" autocomplete="off" />
-          <button class="primary-button" type="submit">開く / 依頼</button>
+          <button class="primary-button" type="submit">開く</button>
         </form>
       </header>
 
       <main class="layout">
         <aside class="sidebar" aria-label="文書一覧">
-          <section class="panel guide-panel">
-            <div class="panel-heading">
-              <h2>Codex生成</h2>
-              <span class="status-pill ready">API不要</span>
-            </div>
-            <p class="muted small">
-              本文の文字を範囲選択して右クリックすると、Codex用の生成依頼が作られます。
-              このチャットで「生成して」と送ると、Codexが文書データを追加できます。
-            </p>
-          </section>
-
           <section class="panel">
             <div class="panel-heading">
               <h2>文書</h2>
@@ -72,11 +61,11 @@
 
           <section class="request-panel" id="requestPanel" hidden>
             <div class="request-callout" id="requestCallout" role="status" aria-live="polite">
-              生成依頼を作成しました。このチャットで「生成して」と送るとCodexが文書を追加できます。
+              生成依頼を作成しました。
             </div>
             <div class="request-header">
               <div>
-                <span class="eyebrow">Codex Request</span>
+                <span class="eyebrow">Request</span>
                 <h3 id="requestTitle">生成依頼</h3>
                 <p id="requestMeta"></p>
               </div>
@@ -95,7 +84,7 @@
           <section class="element-section" id="elementSection">
             <div class="section-heading">
               <h3>この解説を理解するための細かい要素</h3>
-              <p>文書ありなら開きます。未生成の要素はCodex生成依頼を作ります。</p>
+              <p>文書ありなら開きます。未作成の要素は深掘り候補になります。</p>
             </div>
             <div class="element-list" id="elementList"></div>
           </section>
@@ -124,20 +113,6 @@
             </dl>
           </section>
 
-          <section class="panel">
-            <h2>範囲選択</h2>
-            <p class="muted small">
-              本文中の分からない語句をドラッグして選択し、その上で右クリックしてください。
-              既存文書があれば開き、なければCodex生成依頼を作ります。
-            </p>
-          </section>
-
-          <section class="panel">
-            <h2>保存方式</h2>
-            <p class="muted small">
-              文書の実体は <code>data.js</code> です。Codexがこのファイルを編集するので、外部APIキーは不要です。
-            </p>
-          </section>
         </aside>
       </main>
     </div>
