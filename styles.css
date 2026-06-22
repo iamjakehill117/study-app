@@ -62,10 +62,12 @@ code {
 }
 
 .math-inline {
+  display: inline-flex;
+  align-items: center;
   font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif;
-  font-style: italic;
   color: #1f2f2b;
   white-space: nowrap;
+  vertical-align: -0.18em;
 }
 
 .math-block {
@@ -81,6 +83,20 @@ code {
   font-size: 1.02rem;
   line-height: 1.75;
   text-align: center;
+  white-space: normal;
+}
+
+.math-inline math,
+.math-block math {
+  font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif;
+}
+
+.math-block math {
+  display: inline-block;
+  font-size: 1.12rem;
+}
+
+.math-fallback {
   white-space: pre;
 }
 

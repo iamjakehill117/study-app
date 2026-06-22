@@ -43,11 +43,6 @@ const state = {
   selectedElementKeys: new Set()
 };
 
-loadUiState();
-readHashRequest();
-render();
-bindEvents();
-
 function bindEvents() {
   els.topicForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -243,7 +238,7 @@ function buildBulkCodexPrompt(request, parentDoc) {
     "6. ほかの既存文書の elements に同じ key がある場合も linkedDocId を同じ新規文書IDにしてください。",
     "7. 文書は日本語で、網羅的かつ詳細に説明してください。",
     "8. 各文書の markdown本文と、理解に必要な細かい要素 8から18個を elements に入れてください。",
-    "9. 数式が必要な要素では、専門書の記法にならい、変数定義、前提条件、代表式、近似式、式の読み方を含めてください。本文中の数式は $...$、独立した重要式は $$ だけの行で囲んだ数式ブロックにしてください。",
+    "9. 数式が必要な要素では、専門書の記法にならい、変数定義、前提条件、代表式、近似式、式の読み方を含めてください。本文中の数式は $...$、独立した重要式は $$ だけの行で囲んだ数式ブロックにしてください。分数は \\frac{}{}、下付き・上付きは _{} と ^{} を使って書いてください。サイト上では組版された数式として表示されます。",
     "10. 既存の data.js の書式に合わせ、外部APIやlocalStorageは使わないでください。",
     "11. 複数文書を追加した後、data.js がJavaScriptとして壊れていないか確認してください。"
   ].join("\n");
@@ -277,7 +272,7 @@ function buildCodexPrompt(request, parentDoc) {
     "6. 既存文書の elements に同じ key がある場合は linkedDocId を新しい文書IDにしてください。",
     "7. 文書は日本語で、網羅的かつ詳細に説明してください。",
     "8. markdown本文と、理解に必要な細かい要素 8から18個を elements に入れてください。",
-    "9. 数式が必要な要素では、専門書の記法にならい、変数定義、前提条件、代表式、近似式、式の読み方を含めてください。本文中の数式は $...$、独立した重要式は $$ だけの行で囲んだ数式ブロックにしてください。",
+    "9. 数式が必要な要素では、専門書の記法にならい、変数定義、前提条件、代表式、近似式、式の読み方を含めてください。本文中の数式は $...$、独立した重要式は $$ だけの行で囲んだ数式ブロックにしてください。分数は \\frac{}{}、下付き・上付きは _{} と ^{} を使って書いてください。サイト上では組版された数式として表示されます。",
     "10. 既存の data.js の書式に合わせ、外部APIやlocalStorageは使わないでください。"
   ].join("\n");
 }
@@ -694,7 +689,7 @@ function renderMarkdown(markdown, container) {
     if (!mathBlock) return;
     const block = document.createElement("div");
     block.className = "math-block";
-    block.textContent = mathBlock.join("\n");
+    renderMathBlock(mathBlock.join("\n"), block);
     container.append(block);
     mathBlock = null;
   };
@@ -757,10 +752,381 @@ function renderMarkdown(markdown, container) {
 }
 
 function renderInline(text) {
-  return escapeHtml(text)
+  const mathFragments = [];
+  const prepared = String(text).replace(/\$([^$]+)\$/g, (_, expression) => {
+    const token = `@@MATH_${mathFragments.length}@@`;
+    mathFragments.push(renderMathMarkup(expression, false));
+    return token;
+  });
+
+  let html = escapeHtml(prepared)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\$([^$]+)\$/g, "<span class=\"math-inline\">$1</span>");
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+
+  mathFragments.forEach((fragment, index) => {
+    html = html.split(`@@MATH_${index}@@`).join(fragment);
+  });
+
+  return html;
+}
+
+function renderMathBlock(source, container) {
+  container.innerHTML = renderMathMarkup(source, true);
+}
+
+function renderMathMarkup(source, display) {
+  const expression = normalizeMathSource(source);
+  if (!expression) return "";
+
+  try {
+    const parser = new MathParser(expression);
+    const body = parser.parse();
+    const math = `<math xmlns="http://www.w3.org/1998/Math/MathML" display="${display ? "block" : "inline"}"><mrow>${body}</mrow></math>`;
+    return display ? math : `<span class="math-inline">${math}</span>`;
+  } catch {
+    const fallback = `<span class="math-fallback">${escapeHtml(expression)}</span>`;
+    return display ? fallback : `<span class="math-inline">${fallback}</span>`;
+  }
+}
+
+function normalizeMathSource(source) {
+  return String(source || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/−/g, "-")
+    .replace(/・/g, "\\cdot")
+    .trim();
+}
+
+function tokenizeMath(source) {
+  const tokens = [];
+  let index = 0;
+
+  while (index < source.length) {
+    const char = source[index];
+    if (/\s/.test(char)) {
+      index += 1;
+      continue;
+    }
+
+    if (char === "\\") {
+      const next = source[index + 1];
+      if (!next) break;
+      if (/[A-Za-z]/.test(next)) {
+        let end = index + 2;
+        while (/[A-Za-z]/.test(source[end] || "")) end += 1;
+        const raw = source.slice(index, end);
+        tokens.push({ type: "command", value: raw.slice(1), raw });
+        index = end;
+      } else {
+        const raw = source.slice(index, index + 2);
+        tokens.push({ type: "command", value: next, raw });
+        index += 2;
+      }
+      continue;
+    }
+
+    if (char === "{") {
+      tokens.push({ type: "braceOpen", value: char, raw: char });
+      index += 1;
+      continue;
+    }
+
+    if (char === "}") {
+      tokens.push({ type: "braceClose", value: char, raw: char });
+      index += 1;
+      continue;
+    }
+
+    if (char === "_" || char === "^") {
+      tokens.push({ type: "script", value: char, raw: char });
+      index += 1;
+      continue;
+    }
+
+    if (/[0-9.]/.test(char)) {
+      let end = index + 1;
+      while (/[0-9.]/.test(source[end] || "")) end += 1;
+      const raw = source.slice(index, end);
+      tokens.push({ type: "number", value: raw, raw });
+      index = end;
+      continue;
+    }
+
+    if (isMathLetter(char)) {
+      let end = index + 1;
+      while (isMathLetter(source[end] || "")) end += 1;
+      const raw = source.slice(index, end);
+      tokens.push({ type: "identifier", value: raw, raw });
+      index = end;
+      continue;
+    }
+
+    tokens.push({ type: "symbol", value: char, raw: char });
+    index += 1;
+  }
+
+  return tokens;
+}
+
+function isMathLetter(char) {
+  return /[A-Za-zα-ωΑ-Ωηφκγ]/.test(char);
+}
+
+class MathParser {
+  constructor(source) {
+    this.tokens = tokenizeMath(source);
+    this.index = 0;
+  }
+
+  parse() {
+    return this.parseExpression({});
+  }
+
+  parseExpression(stops) {
+    const nodes = [];
+    while (!this.isDone()) {
+      const token = this.peek();
+      if (stops.brace && token.type === "braceClose") break;
+      if (stops.right && token.type === "command" && token.value === "right") break;
+
+      const atom = this.parseAtom();
+      if (atom) nodes.push(this.parseScripts(atom));
+    }
+    return nodes.join("");
+  }
+
+  parseAtom() {
+    if (this.isDone()) return "";
+    const token = this.next();
+
+    if (token.type === "braceOpen") {
+      const content = this.parseExpression({ brace: true });
+      this.consume("braceClose");
+      return mrow(content);
+    }
+
+    if (token.type === "braceClose") return "";
+    if (token.type === "number") return mn(token.value);
+    if (token.type === "identifier") return renderIdentifier(token.value);
+    if (token.type === "symbol") return renderSymbol(token.value);
+
+    if (token.type === "command") {
+      return this.parseCommand(token.value);
+    }
+
+    return "";
+  }
+
+  parseCommand(command) {
+    if (GREEK_COMMANDS[command]) return mi(GREEK_COMMANDS[command]);
+    if (MATH_FUNCTIONS.has(command)) return mi(command, true);
+
+    switch (command) {
+      case "frac":
+        return tag("mfrac", this.parseRequiredGroup() + this.parseRequiredGroup());
+      case "left":
+        return this.parseLeftRight();
+      case "right":
+        return "";
+      case "mathrm":
+        return mi(this.readGroupRaw(), true);
+      case "mathbf":
+        return tag("mstyle", { mathvariant: "bold" }, this.parseRequiredGroup());
+      case "operatorname":
+        return mi(this.readGroupRaw(), true);
+      case "tag": {
+        const label = this.readGroupRaw();
+        return `${tag("mspace", { width: "2em" })}${mtext(`(${label})`)}`;
+      }
+      case "quad":
+        return tag("mspace", { width: "1em" });
+      case "qquad":
+        return tag("mspace", { width: "2em" });
+      case "cdot":
+        return mo("⋅");
+      case "times":
+        return mo("×");
+      case "approx":
+        return mo("≈");
+      case "leq":
+        return mo("≤");
+      case "geq":
+        return mo("≥");
+      case "neq":
+        return mo("≠");
+      case "to":
+        return mo("→");
+      case "infty":
+        return mo("∞");
+      case "partial":
+        return mo("∂");
+      case "nabla":
+        return mo("∇");
+      case "{":
+        return mo("{");
+      case "}":
+        return mo("}");
+      default:
+        return renderIdentifier(command);
+    }
+  }
+
+  parseLeftRight() {
+    const leftDelimiter = this.readDelimiter();
+    const content = this.parseExpression({ right: true });
+    if (this.peek()?.type === "command" && this.peek().value === "right") {
+      this.next();
+    }
+    const rightDelimiter = this.readDelimiter();
+    return mrow(`${mo(leftDelimiter)}${content}${mo(rightDelimiter)}`);
+  }
+
+  parseScripts(base) {
+    let subscript = "";
+    let superscript = "";
+
+    while (this.peek()?.type === "script") {
+      const script = this.next().value;
+      const value = this.parseRequiredGroup();
+      if (script === "_") subscript = value;
+      if (script === "^") superscript = value;
+    }
+
+    if (subscript && superscript) return tag("msubsup", base + subscript + superscript);
+    if (subscript) return tag("msub", base + subscript);
+    if (superscript) return tag("msup", base + superscript);
+    return base;
+  }
+
+  parseRequiredGroup() {
+    if (this.peek()?.type === "braceOpen") {
+      this.next();
+      const content = this.parseExpression({ brace: true });
+      this.consume("braceClose");
+      return mrow(content);
+    }
+    return this.parseAtom();
+  }
+
+  readGroupRaw() {
+    if (this.peek()?.type !== "braceOpen") return "";
+    this.next();
+    let depth = 1;
+    let raw = "";
+
+    while (!this.isDone() && depth > 0) {
+      const token = this.next();
+      if (token.type === "braceOpen") {
+        depth += 1;
+        raw += token.raw;
+        continue;
+      }
+      if (token.type === "braceClose") {
+        depth -= 1;
+        if (depth > 0) raw += token.raw;
+        continue;
+      }
+      raw += token.raw;
+    }
+
+    return raw;
+  }
+
+  readDelimiter() {
+    const token = this.next();
+    if (!token) return "";
+    if (token.type === "command") {
+      if (token.value === "{") return "{";
+      if (token.value === "}") return "}";
+      if (token.value === "|") return "|";
+      return token.value;
+    }
+    return token.value;
+  }
+
+  consume(type) {
+    if (this.peek()?.type === type) return this.next();
+    return null;
+  }
+
+  peek() {
+    return this.tokens[this.index];
+  }
+
+  next() {
+    return this.tokens[this.index++];
+  }
+
+  isDone() {
+    return this.index >= this.tokens.length;
+  }
+}
+
+const GREEK_COMMANDS = {
+  alpha: "α",
+  beta: "β",
+  gamma: "γ",
+  delta: "δ",
+  epsilon: "ε",
+  eta: "η",
+  theta: "θ",
+  kappa: "κ",
+  lambda: "λ",
+  mu: "μ",
+  nu: "ν",
+  pi: "π",
+  rho: "ρ",
+  sigma: "σ",
+  tau: "τ",
+  phi: "φ",
+  omega: "ω",
+  Delta: "Δ",
+  Phi: "Φ"
+};
+
+const MATH_FUNCTIONS = new Set(["exp", "log", "ln", "sin", "cos", "tan", "max", "min"]);
+
+function renderIdentifier(value) {
+  if (MATH_FUNCTIONS.has(value)) return mi(value, true);
+  if (value.length === 1) return mi(value);
+  return [...value].map((char) => mi(char)).join("");
+}
+
+function renderSymbol(value) {
+  if (value === "-") return mo("−");
+  if (value === "*") return mo("×");
+  return /[=+()[\]|,;:<>≈≤≥]/.test(value) ? mo(value) : mi(value);
+}
+
+function tag(name, attrs, children) {
+  if (typeof attrs === "string" || attrs === undefined) {
+    children = attrs || "";
+    attrs = {};
+  }
+  const attrText = Object.entries(attrs)
+    .map(([key, value]) => ` ${key}="${escapeHtml(value)}"`)
+    .join("");
+  return `<${name}${attrText}>${children || ""}</${name}>`;
+}
+
+function mrow(children) {
+  return tag("mrow", children);
+}
+
+function mi(value, normal = false) {
+  return tag("mi", normal ? { mathvariant: "normal" } : {}, escapeHtml(value));
+}
+
+function mn(value) {
+  return tag("mn", escapeHtml(value));
+}
+
+function mo(value) {
+  return tag("mo", escapeHtml(value));
+}
+
+function mtext(value) {
+  return tag("mtext", escapeHtml(value));
 }
 
 function linkDocumentInline(container, doc) {
@@ -771,7 +1137,7 @@ function linkDocumentInline(container, doc) {
     acceptNode(node) {
       const parent = node.parentElement;
       if (!parent) return NodeFilter.FILTER_REJECT;
-      if (parent.closest("button, a, code, textarea")) return NodeFilter.FILTER_REJECT;
+      if (parent.closest("button, a, code, textarea, math, .math-inline, .math-block")) return NodeFilter.FILTER_REJECT;
       return targets.some((target) => node.nodeValue.includes(target.label))
         ? NodeFilter.FILTER_ACCEPT
         : NodeFilter.FILTER_REJECT;
@@ -1112,3 +1478,8 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
+
+loadUiState();
+readHashRequest();
+render();
+bindEvents();
