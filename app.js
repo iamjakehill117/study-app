@@ -924,6 +924,13 @@ class MathParser {
     switch (command) {
       case "frac":
         return tag("mfrac", this.parseRequiredGroup() + this.parseRequiredGroup());
+      case "sqrt":
+        return tag("msqrt", this.parseRequiredGroup());
+      case "sum":
+        return mo("∑");
+      case "overline":
+      case "bar":
+        return tag("mover", this.parseRequiredGroup() + mo("¯"));
       case "left":
         return this.parseLeftRight();
       case "right":
@@ -962,6 +969,10 @@ class MathParser {
         return mo("∂");
       case "nabla":
         return mo("∇");
+      case "prime":
+        return mo("′");
+      case "pm":
+        return mo("±");
       case "{":
         return mo("{");
       case "}":
@@ -1068,6 +1079,7 @@ const GREEK_COMMANDS = {
   gamma: "γ",
   delta: "δ",
   epsilon: "ε",
+  varepsilon: "ε",
   eta: "η",
   theta: "θ",
   kappa: "κ",
