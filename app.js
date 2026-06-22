@@ -34,7 +34,8 @@ const els = {
 const state = {
   data: normalizeData(window.STUDY_WIKI_DATA || { docs: {} }),
   currentId: null,
-  pendingRequest: null
+  pendingRequest: null,
+  collapsedDocIds: new Set()
 };
 
 loadUiState();
@@ -93,7 +94,16 @@ function bindEvents() {
     const selectedText = getSelectedText();
     if (!selectedText) return;
     event.preventDefault();
-    requestFromSelection(selectedText);
+    showSelectionMenu(selectedText, event.clientX, event.clientY);
+  });
+
+  document.addEventListener("click", (event) => {
+    if (event.target.closest(".selection-menu")) return;
+    closeSelectionMenu();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeSelectionMenu();
   });
 }
 
@@ -129,6 +139,12 @@ function requestFromSelection(selectedText) {
     reason: "本文中で選択した語句を理解するため。",
     source: "selection"
   });
+}
+
+function searchSelectionInBrowser(selectedText) {
+  const label = cleanupSelection(selectedText);
+  if (!label) return;
+  window.open(`https://www.google.com/search?q=${encodeURIComponent(label)}`, "_blank", "noopener");
 }
 
 function createCodexRequest({ label, parentDoc, reason, source }) {
@@ -248,6 +264,7 @@ function renderDocList() {
 
   allDocs
     .filter((doc) => visibleIds.has(doc.id) && !renderedIds.has(doc.id))
+    .filter((doc) => !tree.parentById.has(doc.id))
     .sort(sortDocsByTitle)
     .forEach((doc) => {
       appendDocTreeItem(doc, 0, tree, visibleIds, matchedIds, renderedIds, Boolean(query));
@@ -320,10 +337,26 @@ function appendDocTreeItem(doc, depth, tree, visibleIds, matchedIds, renderedIds
   if (renderedIds.has(doc.id)) return;
   renderedIds.add(doc.id);
   const children = (tree.childrenByParent.get(doc.id) || []).filter((child) => visibleIds.has(child.id));
+  const isCollapsed = state.collapsedDocIds.has(doc.id);
   const parent = tree.parentById.get(doc.id);
   const wrapper = document.createElement("div");
   wrapper.className = `doc-tree-row ${depth > 0 ? "is-child" : "is-root"}`;
+  if (children.length) wrapper.classList.add("has-children");
+  if (isCollapsed) wrapper.classList.add("is-collapsed");
   wrapper.style.setProperty("--depth", String(Math.min(depth, 5)));
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "doc-tree-toggle";
+  toggle.disabled = !children.length;
+  toggle.textContent = children.length ? (isCollapsed ? "＋" : "−") : "";
+  toggle.title = children.length ? (isCollapsed ? "子文書を表示" : "子文書を非表示") : "";
+  toggle.setAttribute("aria-label", children.length ? toggle.title : "子文書なし");
+  toggle.setAttribute("aria-expanded", children.length ? String(!isCollapsed) : "false");
+  toggle.addEventListener("click", () => {
+    toggleDocCollapse(doc.id);
+  });
+  wrapper.append(toggle);
 
   const button = document.createElement("button");
   button.type = "button";
@@ -340,23 +373,34 @@ function appendDocTreeItem(doc, depth, tree, visibleIds, matchedIds, renderedIds
   `;
   button.querySelector(".doc-node-badge").textContent = parent ? "子" : children.length ? "親" : "ルート";
   button.querySelector("strong").textContent = doc.title;
-  button.querySelector(".doc-node-meta").textContent = formatDocTreeMeta(doc, parent, children.length);
+  button.querySelector(".doc-node-meta").textContent = formatDocTreeMeta(doc, parent, children.length, isCollapsed);
   button.addEventListener("click", () => openDoc(doc.id));
   wrapper.append(button);
   els.docList.append(wrapper);
 
+  if (isCollapsed) return;
   children.forEach((child) => {
     appendDocTreeItem(child, depth + 1, tree, visibleIds, matchedIds, renderedIds, isFiltered);
   });
 }
 
-function formatDocTreeMeta(doc, parent, childCount) {
-  const childText = childCount ? `子 ${childCount}` : "子なし";
+function formatDocTreeMeta(doc, parent, childCount, isCollapsed) {
+  const childText = childCount ? `子 ${childCount}${isCollapsed ? " 非表示" : ""}` : "子なし";
   if (!parent) {
     return `ルート文書 / ${childText} / ${doc.elements.length} 要素`;
   }
   const parentTitle = state.data.docs[parent.docId]?.title || parent.title || "親文書";
   return `親 ${parentTitle} > ${parent.elementLabel || doc.title} / ${childText}`;
+}
+
+function toggleDocCollapse(docId) {
+  if (state.collapsedDocIds.has(docId)) {
+    state.collapsedDocIds.delete(docId);
+  } else {
+    state.collapsedDocIds.add(docId);
+  }
+  saveUiState();
+  renderDocList();
 }
 
 function sortDocsByParentOrder(parentId, a, b) {
@@ -688,8 +732,20 @@ function openDoc(id) {
   if (!state.data.docs[id]) return;
   state.currentId = id;
   state.data.currentId = id;
+  expandAncestorsOfDoc(id);
   saveUiState();
   render();
+}
+
+function expandAncestorsOfDoc(id) {
+  const tree = buildDocTree();
+  let parent = tree.parentById.get(id);
+  const seen = new Set();
+  while (parent && !seen.has(parent.docId)) {
+    seen.add(parent.docId);
+    state.collapsedDocIds.delete(parent.docId);
+    parent = tree.parentById.get(parent.docId);
+  }
 }
 
 function buildBreadcrumb(doc) {
@@ -727,19 +783,68 @@ function loadUiState() {
     state.currentId = ui.currentId && state.data.docs[ui.currentId]
       ? ui.currentId
       : state.data.currentId;
+    state.collapsedDocIds = new Set(
+      Array.isArray(ui.collapsedDocIds)
+        ? ui.collapsedDocIds.filter((id) => state.data.docs[id])
+        : []
+    );
   } catch {
     state.currentId = state.data.currentId;
+    state.collapsedDocIds = new Set();
   }
 }
 
 function saveUiState() {
-  localStorage.setItem(UI_STORAGE_KEY, JSON.stringify({ currentId: state.currentId }));
+  localStorage.setItem(UI_STORAGE_KEY, JSON.stringify({
+    currentId: state.currentId,
+    collapsedDocIds: [...state.collapsedDocIds]
+  }));
 }
 
 function getSelectedText() {
   const selection = window.getSelection();
   if (!selection || selection.isCollapsed) return "";
   return selection.toString();
+}
+
+function showSelectionMenu(selectedText, clientX, clientY) {
+  const label = cleanupSelection(selectedText);
+  if (!label) return;
+  closeSelectionMenu();
+
+  const existing = findDocByConcept(label);
+  const menu = document.createElement("div");
+  menu.className = "selection-menu";
+  menu.setAttribute("role", "menu");
+  menu.innerHTML = `
+    <p></p>
+    <div class="selection-menu-actions">
+      <button type="button" data-action="search">ブラウザで検索</button>
+      <button type="button" data-action="request"></button>
+    </div>
+  `;
+  menu.querySelector("p").textContent = `「${label}」`;
+  menu.querySelector('[data-action="request"]').textContent = existing ? "文書を開く" : "生成依頼";
+  menu.querySelector('[data-action="search"]').addEventListener("click", () => {
+    searchSelectionInBrowser(label);
+    closeSelectionMenu();
+  });
+  menu.querySelector('[data-action="request"]').addEventListener("click", () => {
+    requestFromSelection(label);
+    closeSelectionMenu();
+  });
+  document.body.append(menu);
+
+  const margin = 10;
+  const rect = menu.getBoundingClientRect();
+  const left = Math.min(clientX, window.innerWidth - rect.width - margin);
+  const top = Math.min(clientY, window.innerHeight - rect.height - margin);
+  menu.style.left = `${Math.max(margin, left)}px`;
+  menu.style.top = `${Math.max(margin, top)}px`;
+}
+
+function closeSelectionMenu() {
+  document.querySelector(".selection-menu")?.remove();
 }
 
 function cleanupSelection(text) {

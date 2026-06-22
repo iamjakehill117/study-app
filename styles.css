@@ -284,6 +284,10 @@ textarea:focus {
   --depth: 0;
   position: relative;
   padding-left: calc(var(--depth) * 18px);
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 6px;
 }
 
 .doc-tree-row.is-child::before {
@@ -296,6 +300,29 @@ textarea:focus {
   border-left: 1px solid var(--line-strong);
   border-bottom: 1px solid var(--line-strong);
   border-radius: 0 0 0 5px;
+}
+
+.doc-tree-toggle {
+  width: 28px;
+  min-height: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--accent-dark);
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.doc-tree-toggle:disabled {
+  border-color: transparent;
+  background: transparent;
+  cursor: default;
+}
+
+.doc-tree-row.is-collapsed .doc-tree-toggle {
+  background: var(--green-soft);
+  border-color: #9cc5bc;
 }
 
 .doc-item,
@@ -356,6 +383,48 @@ textarea:focus {
 .concept-item span {
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+.selection-menu {
+  position: fixed;
+  z-index: 40;
+  width: min(280px, calc(100vw - 20px));
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 8px;
+}
+
+.selection-menu p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.selection-menu-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.selection-menu button {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-soft);
+  padding: 8px;
+  color: var(--ink);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.selection-menu button:hover {
+  border-color: var(--accent);
+  background: #fff;
 }
 
 .reader {
