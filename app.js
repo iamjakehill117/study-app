@@ -132,8 +132,10 @@ function openOrRequestTopic(topic) {
   });
 }
 
-function requestFromSelection(selectedText) {
-  const isFormula = looksLikeFormulaSelection(selectedText);
+function requestFromSelection(selectedText, options = {}) {
+  const forceDerivation = options.derivation === true;
+  const forceNormal = options.derivation === false;
+  const isFormula = forceDerivation || (!forceNormal && looksLikeFormulaSelection(selectedText));
   const label = isFormula ? cleanupFormulaSelection(selectedText) : cleanupSelection(selectedText);
   if (!label) return;
 
@@ -1370,12 +1372,13 @@ function getSelectedText() {
 }
 
 function showSelectionMenu(selectedText, clientX, clientY) {
-  const isFormula = looksLikeFormulaSelection(selectedText);
-  const label = isFormula ? cleanupFormulaSelection(selectedText) : cleanupSelection(selectedText);
+  const normalLabel = cleanupSelection(selectedText);
+  const formulaLabel = cleanupFormulaSelection(selectedText);
+  const label = formulaLabel || normalLabel;
   if (!label) return;
   closeSelectionMenu();
 
-  const existing = isFormula ? null : findDocByConcept(label);
+  const existing = normalLabel ? findDocByConcept(normalLabel) : null;
   const menu = document.createElement("div");
   menu.className = "selection-menu";
   menu.setAttribute("role", "menu");
@@ -1383,19 +1386,28 @@ function showSelectionMenu(selectedText, clientX, clientY) {
     <p></p>
     <div class="selection-menu-actions">
       <button type="button" data-action="search">ブラウザで検索</button>
-      <button type="button" data-action="request"></button>
+      <button type="button" data-action="request-normal"></button>
+      <button type="button" data-action="request-derivation">数式の導出依頼</button>
     </div>
   `;
   menu.querySelector("p").textContent = `「${label}」`;
-  menu.querySelector('[data-action="request"]').textContent = existing
+  menu.querySelector('[data-action="request-normal"]').textContent = existing
     ? "文書を開く"
-    : isFormula ? "導出生成依頼" : "生成依頼";
+    : "通常の生成依頼";
   menu.querySelector('[data-action="search"]').addEventListener("click", () => {
     searchSelectionInBrowser(label);
     closeSelectionMenu();
   });
-  menu.querySelector('[data-action="request"]').addEventListener("click", () => {
-    requestFromSelection(label);
+  menu.querySelector('[data-action="request-normal"]').addEventListener("click", () => {
+    if (existing) {
+      openDoc(existing.id);
+    } else {
+      requestFromSelection(normalLabel || label, { derivation: false });
+    }
+    closeSelectionMenu();
+  });
+  menu.querySelector('[data-action="request-derivation"]').addEventListener("click", () => {
+    requestFromSelection(formulaLabel || label, { derivation: true });
     closeSelectionMenu();
   });
   document.body.append(menu);
