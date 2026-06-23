@@ -133,11 +133,12 @@ function openOrRequestTopic(topic) {
 }
 
 function requestFromSelection(selectedText) {
-  const label = cleanupSelection(selectedText);
+  const isFormula = looksLikeFormulaSelection(selectedText);
+  const label = isFormula ? cleanupFormulaSelection(selectedText) : cleanupSelection(selectedText);
   if (!label) return;
 
   const existing = findDocByConcept(label);
-  if (existing) {
+  if (existing && !isFormula) {
     openDoc(existing.id);
     showNotice(`「${label}」の既存文書を開きました。`);
     return;
@@ -146,8 +147,10 @@ function requestFromSelection(selectedText) {
   createCodexRequest({
     label,
     parentDoc: currentDoc(),
-    reason: "本文中で選択した語句を理解するため。",
-    source: "selection"
+    reason: isFormula
+      ? "本文中で選択した数式の導出を詳しく理解するため。"
+      : "本文中で選択した語句を理解するため。",
+    source: isFormula ? "selection-formula" : "selection"
   });
 }
 
@@ -168,7 +171,8 @@ function createCodexRequest({ label, parentDoc, reason, source }) {
     parentId: parentDoc?.id || null,
     parentTitle: parentDoc?.title || null,
     parentSummary: parentDoc?.summary || null,
-    selectionText: source === "selection" ? label : null,
+    selectionText: source === "selection" || source === "selection-formula" ? label : null,
+    isFormulaDerivation: source === "selection-formula",
     createdAt: new Date().toISOString()
   };
   request.prompt = buildCodexPrompt(request, parentDoc);
@@ -238,7 +242,7 @@ function buildBulkCodexPrompt(request, parentDoc) {
     "6. ほかの既存文書の elements に同じ key がある場合も linkedDocId を同じ新規文書IDにしてください。",
     "7. 文書は日本語で、網羅的かつ詳細に説明してください。",
     "8. 各文書の markdown本文と、理解に必要な細かい要素 8から18個を elements に入れてください。",
-    "9. 数式が必要な要素では、専門書の記法にならい、変数定義、前提条件、代表式、近似式、式の読み方を含めてください。本文中の数式は $...$、独立した重要式は $$ だけの行で囲んだ数式ブロックにしてください。分数は \\frac{}{}、下付き・上付きは _{} と ^{} を使って書いてください。サイト上では組版された数式として表示されます。",
+    "9. 数式で説明できる部分は必ず数式を使ってください。専門書の記法にならい、変数定義、前提条件、代表式、近似式、式の読み方を含めてください。本文中の数式は $...$、独立した重要式は $$ だけの行で囲んだ数式ブロックにしてください。分数は \\frac{}{}、下付き・上付きは _{} と ^{} を使って書いてください。サイト上では組版された数式として表示されます。",
     "10. 既存の data.js の書式に合わせ、外部APIやlocalStorageは使わないでください。",
     "11. 複数文書を追加した後、data.js がJavaScriptとして壊れていないか確認してください。"
   ].join("\n");
@@ -254,6 +258,18 @@ function buildCodexPrompt(request, parentDoc) {
         parentDoc.markdown.slice(0, 1800)
       ].join("\n")
     : "親文書なし。ルート文書として作成。";
+  const formulaDerivationBlock = request.isFormulaDerivation
+    ? [
+        "",
+        "数式選択時の追加指示:",
+        "1. この依頼は、本文中で範囲選択された数式そのものの導出文書を作る依頼です。",
+        `2. 対象数式: ${request.selectionText || request.label}`,
+        "3. markdown本文では、まず対象数式を組版された数式ブロックで示し、各記号の意味、前提条件、使う定義・保存則・近似、導出の各ステップ、最終式、式の物理的または数学的な読み方、適用範囲と注意点を順に説明してください。",
+        "4. 導出は途中式を省略しすぎず、式変形の理由を日本語で添えてください。",
+        "5. elements には、その導出を理解するために必要な数学分野と知識を中心に入れてください。例: 微分積分、偏微分、ベクトル解析、線形代数、指数関数と対数、常微分方程式、偏微分方程式、保存則、無次元化、近似・線形化、境界条件など。対象式に応じて物理分野の前提知識も含めてください。",
+        "6. 生成元 source は selection-formula とし、parentLinks の elementLabel は選択された数式そのものにしてください。"
+      ].join("\n")
+    : "";
 
   return [
     "Codex生成依頼:",
@@ -262,17 +278,18 @@ function buildCodexPrompt(request, parentDoc) {
     `生成元: ${request.source}`,
     `理由: ${request.reason}`,
     parentBlock,
+    formulaDerivationBlock,
     "",
     "作業内容:",
     "1. data.js の window.STUDY_WIKI_DATA.docs に、この対象要素の新しい文書を追加してください。",
     "2. 新規文書IDは英数字とハイフンの短いIDにしてください。",
     "3. 新規文書には title, key, summary, markdown, elements, aliases, parentLinks, createdAt, updatedAt を入れてください。",
     "4. 親文書がある場合、新規文書の parentLinks に { docId, title, elementKey, elementLabel, source } を入れてください。",
-    "5. 生成元が selection の場合、elementLabel は本文で選択された語句そのものにしてください。親本文は編集しなくても、アプリが parentLinks を見て自動で本文内リンクにします。",
+    "5. 生成元が selection または selection-formula の場合、elementLabel は本文で選択された語句または数式そのものにしてください。親本文は編集しなくても、アプリが parentLinks を見て自動で本文内リンクにします。",
     "6. 既存文書の elements に同じ key がある場合は linkedDocId を新しい文書IDにしてください。",
     "7. 文書は日本語で、網羅的かつ詳細に説明してください。",
     "8. markdown本文と、理解に必要な細かい要素 8から18個を elements に入れてください。",
-    "9. 数式が必要な要素では、専門書の記法にならい、変数定義、前提条件、代表式、近似式、式の読み方を含めてください。本文中の数式は $...$、独立した重要式は $$ だけの行で囲んだ数式ブロックにしてください。分数は \\frac{}{}、下付き・上付きは _{} と ^{} を使って書いてください。サイト上では組版された数式として表示されます。",
+    "9. 数式で説明できる部分は必ず数式を使ってください。専門書の記法にならい、変数定義、前提条件、代表式、近似式、式の読み方を含めてください。本文中の数式は $...$、独立した重要式は $$ だけの行で囲んだ数式ブロックにしてください。分数は \\frac{}{}、下付き・上付きは _{} と ^{} を使って書いてください。サイト上では組版された数式として表示されます。",
     "10. 既存の data.js の書式に合わせ、外部APIやlocalStorageは使わないでください。"
   ].join("\n");
 }
@@ -287,6 +304,7 @@ function updateRequestHash(request) {
     reason: request.reason,
     source: request.source,
     selectionText: request.selectionText || null,
+    isFormulaDerivation: request.isFormulaDerivation || false,
     items: request.items || null
   };
   const encoded = encodeURIComponent(JSON.stringify(hashPayload));
@@ -300,6 +318,7 @@ function readHashRequest() {
     const request = JSON.parse(raw);
     const parentDoc = request.parentId ? state.data.docs[request.parentId] : null;
     request.createdAt = request.createdAt || new Date().toISOString();
+    request.isFormulaDerivation = request.isFormulaDerivation || request.source === "selection-formula";
     if (request.action === "generate-docs") {
       if (!parentDoc || !Array.isArray(request.items)) return;
       request.prompt = buildBulkCodexPrompt(request, parentDoc);
@@ -655,6 +674,8 @@ function renderRequestPanel() {
   if (!request) return;
   els.requestTitle.textContent = request.action === "generate-docs"
     ? `${request.items.length}件の生成依頼`
+    : request.isFormulaDerivation
+      ? `選択数式の導出依頼`
     : `「${request.label}」の生成依頼`;
   els.requestMeta.textContent = request.parentTitle
     ? `親文書: ${request.parentTitle}`
@@ -1349,11 +1370,12 @@ function getSelectedText() {
 }
 
 function showSelectionMenu(selectedText, clientX, clientY) {
-  const label = cleanupSelection(selectedText);
+  const isFormula = looksLikeFormulaSelection(selectedText);
+  const label = isFormula ? cleanupFormulaSelection(selectedText) : cleanupSelection(selectedText);
   if (!label) return;
   closeSelectionMenu();
 
-  const existing = findDocByConcept(label);
+  const existing = isFormula ? null : findDocByConcept(label);
   const menu = document.createElement("div");
   menu.className = "selection-menu";
   menu.setAttribute("role", "menu");
@@ -1365,7 +1387,9 @@ function showSelectionMenu(selectedText, clientX, clientY) {
     </div>
   `;
   menu.querySelector("p").textContent = `「${label}」`;
-  menu.querySelector('[data-action="request"]').textContent = existing ? "文書を開く" : "生成依頼";
+  menu.querySelector('[data-action="request"]').textContent = existing
+    ? "文書を開く"
+    : isFormula ? "導出生成依頼" : "生成依頼";
   menu.querySelector('[data-action="search"]').addEventListener("click", () => {
     searchSelectionInBrowser(label);
     closeSelectionMenu();
@@ -1394,6 +1418,32 @@ function cleanupSelection(text) {
     .replace(/[。、「」『』]+$/g, "")
     .trim()
     .slice(0, 80);
+}
+
+function cleanupFormulaSelection(text) {
+  return String(text || "")
+    .replace(/\s+/g, " ")
+    .replace(/^[、。，．:：;；]+|[、。，．:：;；]+$/g, "")
+    .trim()
+    .slice(0, 240);
+}
+
+function looksLikeFormulaSelection(text) {
+  const value = cleanupFormulaSelection(text);
+  if (value.length < 3) return false;
+
+  const hasEquation = /[=≈≃≒≤≥<>]/.test(value);
+  const hasLatexCommand = /\\[A-Za-z]+/.test(value);
+  const hasGreek = /[α-ωΑ-ΩηφκγρμνπσθλΔΦΩ]/.test(value);
+  const hasMathSymbol = /[∂∇∑√∞±×÷⋅·→−]/.test(value);
+  const hasScript = /[_^]|[₀-₉⁰-⁹]/.test(value);
+  const hasOperator = /[+\-*/]|\\frac|\bfrac\b|\bexp\b|\blog\b|\bln\b/.test(value);
+  const hasVariable = /[A-Za-z]|[α-ωΑ-Ωηφκγρμνπσθλ]/.test(value);
+
+  if (hasEquation && hasVariable) return true;
+  if ((hasLatexCommand || hasGreek || hasMathSymbol || hasScript) && hasOperator) return true;
+  if ((hasLatexCommand || hasMathSymbol) && hasVariable) return true;
+  return false;
 }
 
 function conceptKey(value) {
