@@ -997,6 +997,10 @@ class MathParser {
         return mo("′");
       case "pm":
         return mo("±");
+      case "propto":
+        return mo("∝");
+      case "ddagger":
+        return mo("‡");
       case "{":
         return mo("{");
       case "}":
