@@ -943,6 +943,8 @@ class MathParser {
 
   parseCommand(command) {
     if (GREEK_COMMANDS[command]) return mi(GREEK_COMMANDS[command]);
+    if (command === "Gamma") return mi("Γ");
+    if (command === "Omega") return mi("Ω");
     if (MATH_FUNCTIONS.has(command)) return mi(command, true);
 
     switch (command) {
@@ -983,8 +985,18 @@ class MathParser {
         return mo("×");
       case "approx":
         return mo("≈");
+      case "simeq":
+        return mo("≃");
+      case "sim":
+        return mo("∼");
+      case "cong":
+        return mo("≅");
+      case "equiv":
+        return mo("≡");
+      case "le":
       case "leq":
         return mo("≤");
+      case "ge":
       case "geq":
         return mo("≥");
       case "neq":
@@ -1005,6 +1017,16 @@ class MathParser {
         return mo("∝");
       case "ddagger":
         return mo("‡");
+      case ",":
+        return tag("mspace", { width: "0.167em" });
+      case ":":
+        return tag("mspace", { width: "0.222em" });
+      case ";":
+        return tag("mspace", { width: "0.278em" });
+      case " ":
+        return tag("mspace", { width: "0.333em" });
+      case "!":
+        return tag("mspace", { width: "0em" });
       case "{":
         return mo("{");
       case "}":
