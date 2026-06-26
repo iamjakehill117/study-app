@@ -4,7 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>学習Wiki</title>
-    <link rel="stylesheet" href="styles.css?v=20260626-mathsymbols" />
+    <script>
+      window.STUDY_ASSET_VERSION = Date.now().toString();
+      document.write('<link rel="stylesheet" href="styles.css?v=' + window.STUDY_ASSET_VERSION + '" />');
+    </script>
     <style>
       .shell.is-locked {
         display: none;
@@ -176,7 +179,9 @@
       </main>
     </div>
 
-    <script src="encrypted-data.js?v=20260626-mathsymbols"></script>
-    <script src="private-loader.js?v=20260626-mathsymbols"></script>
+    <script>
+      document.write('<script src="encrypted-data.js?v=' + window.STUDY_ASSET_VERSION + '"><\/script>');
+      document.write('<script src="private-loader.js?v=' + window.STUDY_ASSET_VERSION + '"><\/script>');
+    </script>
   </body>
 </html>

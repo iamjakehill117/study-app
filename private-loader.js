@@ -68,6 +68,8 @@ function base64ToBytes(value) {
 
 function loadScript(src) {
   const script = document.createElement("script");
-  script.src = src;
+  const version = window.STUDY_ASSET_VERSION || Date.now().toString();
+  const separator = src.includes("?") ? "&" : "?";
+  script.src = `${src}${separator}v=${encodeURIComponent(version)}`;
   document.body.append(script);
 }
