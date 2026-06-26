@@ -2554,7 +2554,7 @@ $$
 $$
 \\mathrm{SHR} =
 \\frac{\\dot Q_{\\mathrm{s}}}
-{\\dot Q_{\\mathrm{s}} + \\dot Q_{\\mathrm{l}}} \tag{11}
+{\\dot Q_{\\mathrm{s}} + \\dot Q_{\\mathrm{l}}} \\tag{11}
 $$
 
 $\\mathrm{SHR}$ は Sensible Heat Ratio の略です。$\\mathrm{SHR}$ が 1 に近いほど、負荷のほとんどが温度変化です。$\\mathrm{SHR}$ が小さいほど、湿気処理の割合が大きくなります。
@@ -2570,14 +2570,14 @@ $\\mathrm{SHR}$ は Sensible Heat Ratio の略です。$\\mathrm{SHR}$ が 1 に
 
 $$
 \\dot Q_{\\mathrm{coil}} =
-\\dot m_{\\mathrm{da}} \\left(h_{\\mathrm{in}} - h_{\\mathrm{out}}\\right) \tag{12}
+\\dot m_{\\mathrm{da}} \\left(h_{\\mathrm{in}} - h_{\\mathrm{out}}\\right) \\tag{12}
 $$
 
 凝縮水の質量流量は、入口と出口の絶対湿度差から求められます。
 
 $$
 \\dot m_{\\mathrm{cond}} =
-\\dot m_{\\mathrm{da}} \\left(\\omega_{\\mathrm{in}} - \\omega_{\\mathrm{out}}\\right) \tag{13}
+\\dot m_{\\mathrm{da}} \\left(\\omega_{\\mathrm{in}} - \\omega_{\\mathrm{out}}\\right) \\tag{13}
 $$
 
 ここで $\\dot m_{\\mathrm{cond}}$ は凝縮水の質量流量です。式 (13) は、除湿量を実測したり、ドレン水量からコイル性能を評価したりするときにも役立ちます。
@@ -2588,7 +2588,7 @@ $$
 $$
 m_{\\mathrm{da}}\\frac{d\\omega}{dt}
 = \\dot m_{\\mathrm{sup}}\\left(\\omega_{\\mathrm{sup}} - \\omega\\right)
-+ \\dot m_{\\mathrm{gen}} \tag{14}
++ \\dot m_{\\mathrm{gen}} \\tag{14}
 $$
 
 左辺は室内に蓄えられる水蒸気量の時間変化です。右辺第一項は給気による水蒸気の出入り、第二項は室内発湿です。外気導入、すきま風、排気、吸湿材料、結露を含める場合は、それぞれの水蒸気流束を追加します。
@@ -2600,14 +2600,14 @@ $$
 
 $$
 \\dot Q_{\\mathrm{vent,s}} =
-\\dot m_{\\mathrm{da}} c_{p,a}\\left(T_{\\mathrm{o}} - T_{\\mathrm{r}}\\right) \tag{15}
+\\dot m_{\\mathrm{da}} c_{p,a}\\left(T_{\\mathrm{o}} - T_{\\mathrm{r}}\\right) \\tag{15}
 $$
 
 外気の潜熱負荷は次のように近似できます。
 
 $$
 \\dot Q_{\\mathrm{vent,l}} =
-\\dot m_{\\mathrm{da}} h_{\\mathrm{fg}}\\left(\\omega_{\\mathrm{o}} - \\omega_{\\mathrm{r}}\\right) \tag{16}
+\\dot m_{\\mathrm{da}} h_{\\mathrm{fg}}\\left(\\omega_{\\mathrm{o}} - \\omega_{\\mathrm{r}}\\right) \\tag{16}
 $$
 
 夏期の高温多湿外気では、式 (15) と式 (16) の両方が大きくなります。冬期の低温乾燥外気では、加熱による顕熱負荷と、必要に応じた加湿による潜熱負荷を考えます。省エネルギーの観点では、全熱交換器によって外気の顕熱と潜熱を回収する設計も重要です。

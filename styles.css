@@ -97,6 +97,31 @@ code {
   font-size: 1.12rem;
 }
 
+.math-display-row {
+  display: inline-block;
+  position: relative;
+  min-width: max-content;
+  padding-right: 4.2em;
+  width: max-content;
+}
+
+.math-display-formula {
+  display: inline-block;
+  min-width: max-content;
+}
+
+.math-equation-number {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  color: #1f2f2b;
+  font-family: KaTeX_Main, "Times New Roman", serif;
+  font-size: 1rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .math-fallback {
   white-space: pre;
 }

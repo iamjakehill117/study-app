@@ -810,22 +810,44 @@ function renderMathMarkup(source, display) {
   if (!expression) return "";
 
   const wrapperAttrs = `data-math-source="${escapeHtml(expression)}"`;
+  const equation = display ? splitEquationTag(expression) : { expression, tagLabel: "" };
+  const renderExpression = equation.expression;
 
   if (!window.katex?.renderToString) {
-    const fallback = `<span class="math-fallback">${escapeHtml(expression)}</span>`;
-    return display ? fallback : `<span class="math-inline" ${wrapperAttrs}>${fallback}</span>`;
+    const fallback = `<span class="math-fallback">${escapeHtml(renderExpression)}</span>`;
+    const taggedFallback = renderDisplayMath(fallback, equation.tagLabel);
+    return display ? taggedFallback : `<span class="math-inline" ${wrapperAttrs}>${fallback}</span>`;
   }
 
   try {
-    const math = window.katex.renderToString(expression, {
+    const math = window.katex.renderToString(renderExpression, {
       ...KATEX_RENDER_OPTIONS,
       displayMode: display
     });
-    return display ? math : `<span class="math-inline" ${wrapperAttrs}>${math}</span>`;
+    return display ? renderDisplayMath(math, equation.tagLabel) : `<span class="math-inline" ${wrapperAttrs}>${math}</span>`;
   } catch {
-    const fallback = `<span class="math-fallback">${escapeHtml(expression)}</span>`;
-    return display ? fallback : `<span class="math-inline" ${wrapperAttrs}>${fallback}</span>`;
+    const fallback = `<span class="math-fallback">${escapeHtml(renderExpression)}</span>`;
+    return display ? renderDisplayMath(fallback, equation.tagLabel) : `<span class="math-inline" ${wrapperAttrs}>${fallback}</span>`;
   }
+}
+
+function splitEquationTag(expression) {
+  const match = expression.match(/\\tag\s*\{([^{}]+)\}\s*$/);
+  if (!match) return { expression, tagLabel: "" };
+  return {
+    expression: expression.slice(0, match.index).trim(),
+    tagLabel: match[1].trim()
+  };
+}
+
+function renderDisplayMath(math, tagLabel) {
+  if (!tagLabel) return math;
+  return `
+    <span class="math-display-row">
+      <span class="math-display-formula">${math}</span>
+      <span class="math-equation-number">(${escapeHtml(tagLabel)})</span>
+    </span>
+  `;
 }
 
 function normalizeMathSource(source) {
