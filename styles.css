@@ -94,7 +94,6 @@ code {
 }
 
 .math-block .katex {
-  display: inline-block;
   font-size: 1.12rem;
 }
 
@@ -310,7 +309,7 @@ textarea:focus {
 }
 
 .status-pill.ready,
-.tag.linked {
+.meta-tag.linked {
   color: var(--accent-dark);
   background: var(--green-soft);
   border-color: #9cc5bc;
@@ -747,7 +746,7 @@ button:disabled {
   flex-wrap: wrap;
 }
 
-.tag {
+.meta-tag {
   width: max-content;
   border: 1px solid transparent;
   border-radius: 999px;

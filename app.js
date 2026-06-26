@@ -591,9 +591,9 @@ function renderElements(doc) {
       <strong></strong>
       <span class="reason"></span>
       <span class="element-meta">
-        <span class="tag category"></span>
-        <span class="tag difficulty"></span>
-        <span class="tag linked-state"></span>
+        <span class="meta-tag category"></span>
+        <span class="meta-tag difficulty"></span>
+        <span class="meta-tag linked-state"></span>
       </span>
     `;
     button.querySelector("strong").textContent = element.label;
