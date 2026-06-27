@@ -1,6 +1,0 @@
-[build]
-  command = "node build-private-site.mjs"
-  publish = "private_site"
-
-[build.environment]
-  NODE_VERSION = "20"

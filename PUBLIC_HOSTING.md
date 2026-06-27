@@ -1,34 +1,29 @@
-# 同じWi-Fi外から見る方法
+# GitHub Pagesで公開する方法
 
-このWikiは静的ファイルだけで動くため、無料の静的ホスティングに置けば、スマホからどこでも読めます。
+このWikiは静的ファイルだけで動くため、GitHub Pagesで無料公開できます。
 
-## 一番おすすめ
+## 公開するファイル
 
-`public_site` フォルダを作り、その中身を Netlify Drop、Cloudflare Pages、GitHub Pages などの無料静的ホスティングにアップロードします。
-
-## 公開用ファイルを作る
-
-PowerShellでこのフォルダを開き、次を実行します。
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\build-public-site.ps1
-```
-
-`public_site` フォルダが作られます。中に入っている以下の4ファイルを公開します。
+リポジトリ直下の次のファイルがそのままサイトになります。
 
 - `index.html`
 - `styles.css`
 - `app.js`
 - `data.js`
 
-同時に `public_site.zip` も作られます。フォルダのアップロードで権限エラーが出る場合は、このZIPをアップロードしてください。
+以前のように `public_site` フォルダを作ったり、zipをアップロードしたりする必要はありません。
 
 ## 更新するとき
 
-Codexが `data.js` に文書を追加したら、もう一度 `build-public-site.ps1` を実行し、公開先へ再アップロードしてください。
+Codexが `data.js` や画面ファイルを更新したら、GitHub Desktopで次を行います。
+
+1. `Changes` に出ている変更を確認する。
+2. 左下の `Summary` に短い説明を書く。
+3. `Commit to main` を押す。
+4. `Push origin` を押す。
+
+push後、GitHub Pagesの反映には少し時間がかかることがあります。表示が古い場合は、ブラウザのキャッシュを更新してください。
 
 ## 注意
 
-公開した `data.js` は誰でも読めます。個人的なメモや非公開情報を入れた文書は、公開用に分けてください。
-
-知らない人に読まれたくない場合は、この公開版ではなく `PRIVATE_HOSTING.md` の暗号化版を使ってください。
+GitHub Pagesで公開した内容は、URLを知っている人以外にも見られる可能性があります。公開したくない内容は `data.js` に入れないでください。

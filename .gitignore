@@ -1,7 +1,3 @@
-private_site/
-private_site.zip
-public_site/
-public_site.zip
 .phone-server.pid
 phone-server.log
 phone-server.err.log
