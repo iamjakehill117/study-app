@@ -1,4 +1,6 @@
 const UI_STORAGE_KEY = "codex-study-wiki-ui-v1";
+const PROMPT_CONTEXT_CHARS = 600;
+const PROMPT_REGENERATE_CONTEXT_CHARS = 800;
 
 const els = {
   topicForm: document.querySelector("#topicForm"),
@@ -262,20 +264,15 @@ function buildBulkCodexPrompt(request, parentDoc) {
     itemLines,
     "",
     "親文書の本文抜粋:",
-    parentDoc.markdown.slice(0, 1800),
+    contextExcerpt(parentDoc.markdown, PROMPT_CONTEXT_CHARS),
     "",
     "作業内容:",
-    "1. data.js の window.STUDY_WIKI_DATA.docs に、対象要素それぞれの新しい文書を追加してください。",
-    "2. 新規文書IDは英数字とハイフンの短いIDにしてください。既存IDと重複しないようにしてください。",
-    "3. 各新規文書には title, key, summary, markdown, elements, aliases, parentLinks, createdAt, updatedAt を入れてください。",
-    "4. 各新規文書の parentLinks に { docId, title, elementKey, elementLabel, source } を入れてください。docId は親文書ID、title は親文書タイトル、elementKey と elementLabel は対象要素の key と label、source は bulk-elements にしてください。",
-    "5. 親文書の elements に同じ key がある場合は linkedDocId を各新規文書IDにしてください。",
-    "6. ほかの既存文書の elements に同じ key がある場合も linkedDocId を同じ新規文書IDにしてください。",
-    "7. 文書は日本語で、網羅的かつ詳細に説明してください。",
-    "8. 各文書の markdown本文と、理解に必要な細かい要素 8から18個を elements に入れてください。",
-    "9. 数式で説明できる部分は必ず数式を使ってください。専門書の記法にならい、変数定義、前提条件、代表式、近似式、式の読み方を含めてください。本文中の数式は $...$、独立した重要式は $$ だけの行で囲んだ数式ブロックにしてください。分数は \\frac{}{}、下付き・上付きは _{} と ^{} を使って書いてください。サイト上では組版された数式として表示されます。",
-    "10. 既存の data.js の書式に合わせ、外部APIやlocalStorageは使わないでください。",
-    "11. 複数文書を追加した後、data.js がJavaScriptとして壊れていないか確認してください。"
+    "1. data.js の docs に各対象の新規文書を追加。IDは短い英数字とハイフンで重複なし。",
+    "2. 各文書に title, key, summary, markdown, elements, aliases, parentLinks, createdAt, updatedAt を入れる。",
+    "3. parentLinks は親文書ID、親タイトル、対象 key/label、source: bulk-elements を使う。",
+    "4. 親文書と既存文書の同じ key の elements には linkedDocId を設定する。",
+    "5. 日本語で詳しく説明し、elements は8から18個。数式が有効な箇所は $...$ と $$...$$、\\frac{}{}、_{}、^{} を使う。",
+    "6. 外部API/localStorageは使わず、更新後に data.js の構文を確認する。"
   ].join("\n");
 }
 
@@ -286,19 +283,18 @@ function buildCodexPrompt(request, parentDoc) {
         `親文書タイトル: ${parentDoc.title}`,
         `親文書要約: ${parentDoc.summary}`,
         "親文書の本文抜粋:",
-        parentDoc.markdown.slice(0, 1800)
+        contextExcerpt(parentDoc.markdown, PROMPT_CONTEXT_CHARS)
       ].join("\n")
     : "親文書なし。ルート文書として作成。";
   const formulaDerivationBlock = request.isFormulaDerivation
     ? [
         "",
         "数式選択時の追加指示:",
-        "1. この依頼は、本文中で範囲選択された数式そのものの導出文書を作る依頼です。",
-        `2. 対象数式: ${request.selectionText || request.label}`,
-        "3. markdown本文では、まず対象数式を組版された数式ブロックで示し、各記号の意味、前提条件、使う定義・保存則・近似、導出の各ステップ、最終式、式の物理的または数学的な読み方、適用範囲と注意点を順に説明してください。",
-        "4. 導出は途中式を省略しすぎず、式変形の理由を日本語で添えてください。",
-        "5. elements には、その導出を理解するために必要な数学分野と知識を中心に入れてください。例: 微分積分、偏微分、ベクトル解析、線形代数、指数関数と対数、常微分方程式、偏微分方程式、保存則、無次元化、近似・線形化、境界条件など。対象式に応じて物理分野の前提知識も含めてください。",
-        "6. 生成元 source は selection-formula とし、parentLinks の elementLabel は選択された数式そのものにしてください。"
+        `対象数式: ${request.selectionText || request.label}`,
+        "本文は対象数式、記号、前提、導出手順、最終式、読み方、適用範囲を順に説明する。",
+        "途中式と式変形の理由を省略しすぎない。",
+        "elements は導出理解に必要な数学分野と物理・化学の前提知識を中心にする。",
+        "source は selection-formula、parentLinks.elementLabel は選択数式そのものにする。"
       ].join("\n")
     : "";
 
@@ -312,16 +308,12 @@ function buildCodexPrompt(request, parentDoc) {
     formulaDerivationBlock,
     "",
     "作業内容:",
-    "1. data.js の window.STUDY_WIKI_DATA.docs に、この対象要素の新しい文書を追加してください。",
-    "2. 新規文書IDは英数字とハイフンの短いIDにしてください。",
-    "3. 新規文書には title, key, summary, markdown, elements, aliases, parentLinks, createdAt, updatedAt を入れてください。",
-    "4. 親文書がある場合、新規文書の parentLinks に { docId, title, elementKey, elementLabel, source } を入れてください。",
-    "5. 生成元が selection または selection-formula の場合、elementLabel は本文で選択された語句または数式そのものにしてください。親本文は編集しなくても、アプリが parentLinks を見て自動で本文内リンクにします。",
-    "6. 既存文書の elements に同じ key がある場合は linkedDocId を新しい文書IDにしてください。",
-    "7. 文書は日本語で、網羅的かつ詳細に説明してください。",
-    "8. markdown本文と、理解に必要な細かい要素 8から18個を elements に入れてください。",
-    "9. 数式で説明できる部分は必ず数式を使ってください。専門書の記法にならい、変数定義、前提条件、代表式、近似式、式の読み方を含めてください。本文中の数式は $...$、独立した重要式は $$ だけの行で囲んだ数式ブロックにしてください。分数は \\frac{}{}、下付き・上付きは _{} と ^{} を使って書いてください。サイト上では組版された数式として表示されます。",
-    "10. 既存の data.js の書式に合わせ、外部APIやlocalStorageは使わないでください。"
+    "1. data.js の docs に新規文書を追加。IDは短い英数字とハイフン。",
+    "2. title, key, summary, markdown, elements, aliases, parentLinks, createdAt, updatedAt を入れる。",
+    "3. 親がある場合は parentLinks を入れる。selection/selection-formula の elementLabel は選択語句または数式そのもの。",
+    "4. 既存 elements に同じ key があれば linkedDocId を新文書IDにする。",
+    "5. 日本語で詳しく説明し、elements は8から18個。数式が有効な箇所は $...$ と $$...$$、\\frac{}{}、_{}、^{} を使う。",
+    "6. 外部API/localStorageは使わず、既存書式に合わせる。"
   ].join("\n");
 }
 
@@ -359,20 +351,15 @@ function buildRegenerateCodexPrompt(doc) {
     doc.summary || "",
     "",
     "現在の本文抜粋:",
-    String(doc.markdown || "").slice(0, 2200),
+    contextExcerpt(doc.markdown, PROMPT_REGENERATE_CONTEXT_CHARS),
     formulaNote,
     "",
     "作業内容:",
-    `1. data.js の window.STUDY_WIKI_DATA.docs["${doc.id}"] を上書き更新してください。新規文書IDは作らず、id は "${doc.id}" のまま維持してください。`,
-    "2. title, key, summary, markdown, elements, aliases, parentLinks, createdAt, updatedAt を入れてください。",
-    "3. createdAt は既存値を維持し、updatedAt は更新してください。",
-    "4. parentLinks は原則として既存の親子関係を維持してください。source が selection-formula の場合、elementLabel はリンク用に元の数式のままで構いませんが、title は短い導出名にしてください。",
-    "5. 既存文書の elements からこの文書へ linkedDocId が張られている場合、その関係を壊さないでください。",
-    "6. 文書は日本語で、網羅的かつ詳細に説明してください。",
-    "7. markdown本文と、理解に必要な細かい要素 8から18個を elements に入れてください。",
-    "8. 数式で説明できる部分は必ず数式を使ってください。専門書の記法にならい、変数定義、前提条件、代表式、近似式、式の読み方を含めてください。本文中の数式は $...$、独立した重要式は $$ だけの行で囲んだ数式ブロックにしてください。分数は \\frac{}{}、下付き・上付きは _{} と ^{} を使って書いてください。",
-    "9. 既存の data.js の書式に合わせ、外部APIやlocalStorageは使わないでください。",
-    "10. 更新後、data.js がJavaScriptとして壊れていないか確認してください。"
+    `1. data.js の docs["${doc.id}"] を同じIDのまま上書き更新する。`,
+    "2. title, key, summary, markdown, elements, aliases, parentLinks, createdAt, updatedAt を入れる。",
+    "3. createdAt と既存の親子リンク/linkedDocId は維持し、updatedAt は更新する。",
+    "4. 日本語で詳しく説明し、elements は8から18個。数式が有効な箇所は $...$ と $$...$$、\\frac{}{}、_{}、^{} を使う。",
+    "5. 外部API/localStorageは使わず、更新後に data.js の構文を確認する。"
   ].join("\n");
 }
 
@@ -594,6 +581,12 @@ function requestKeyForDoc(doc) {
   const isFormulaDerivation = doc.parentLinks?.some((link) => link.source === "selection-formula") || isFormulaLikeLabel(doc.key);
   if (isFormulaDerivation) return conceptKey(doc.title);
   return doc.key || doc.title;
+}
+
+function contextExcerpt(markdown, maxLength) {
+  const text = String(markdown || "").replace(/\r\n/g, "\n").trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength).trimEnd()}\n...`;
 }
 
 function isFormulaLikeLabel(label) {
