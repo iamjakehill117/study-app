@@ -6,8 +6,6 @@ const els = {
   newButton: document.querySelector("#newButton"),
   searchInput: document.querySelector("#searchInput"),
   docList: document.querySelector("#docList"),
-  conceptList: document.querySelector("#conceptList"),
-  conceptCount: document.querySelector("#conceptCount"),
   breadcrumb: document.querySelector("#breadcrumb"),
   docTitle: document.querySelector("#docTitle"),
   docSummary: document.querySelector("#docSummary"),
@@ -424,7 +422,6 @@ function readHashRequest() {
 
 function render() {
   renderDocList();
-  renderConceptList();
   renderCurrentDocument();
   renderRequestPanel();
 }
@@ -625,23 +622,6 @@ function sortDocsByParentOrder(parentId, a, b) {
 
 function sortDocsByTitle(a, b) {
   return a.title.localeCompare(b.title, "ja");
-}
-
-function renderConceptList() {
-  const docs = Object.values(state.data.docs).sort((a, b) => a.title.localeCompare(b.title, "ja"));
-  els.conceptCount.textContent = String(docs.length);
-  els.conceptList.innerHTML = "";
-
-  docs.forEach((doc) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "concept-item";
-    button.innerHTML = "<strong></strong><span></span>";
-    button.querySelector("strong").textContent = doc.title;
-    button.querySelector("span").textContent = `${incomingLinkCount(doc.id)} 箇所から参照`;
-    button.addEventListener("click", () => openDoc(doc.id));
-    els.conceptList.append(button);
-  });
 }
 
 function renderCurrentDocument() {
@@ -1495,16 +1475,6 @@ function expandAncestorsOfDoc(id) {
 function buildBreadcrumb(doc) {
   const parent = doc.parentLinks[0];
   return parent ? `${parent.title} / ${displayParentElementLabel(doc, parent)}` : "ルート文書";
-}
-
-function incomingLinkCount(docId) {
-  let count = 0;
-  Object.values(state.data.docs).forEach((doc) => {
-    doc.elements.forEach((element) => {
-      if (element.linkedDocId === docId) count += 1;
-    });
-  });
-  return count;
 }
 
 function exportData() {
