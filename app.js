@@ -272,7 +272,8 @@ function buildBulkCodexPrompt(request, parentDoc) {
     "3. parentLinks は親文書ID、親タイトル、対象 key/label、source: bulk-elements を使う。",
     "4. 親文書と既存文書の同じ key の elements には linkedDocId を設定する。",
     "5. 日本語で詳しく説明し、elements は8から18個。数式が有効な箇所は $...$ と $$...$$、\\frac{}{}、_{}、^{} を使う。",
-    "6. 外部API/localStorageは使わず、更新後に data.js の構文を確認する。"
+    "6. data.js は JavaScript 文字列なので、markdown内の LaTeX コマンドはソース上で \\\\frac、\\\\mathrm、\\\\quad のようにバックスラッシュを二重にする。",
+    "7. 外部API/localStorageは使わず、更新後に data.js の構文を確認する。"
   ].join("\n");
 }
 
@@ -313,7 +314,8 @@ function buildCodexPrompt(request, parentDoc) {
     "3. 親がある場合は parentLinks を入れる。selection/selection-formula の elementLabel は選択語句または数式そのもの。",
     "4. 既存 elements に同じ key があれば linkedDocId を新文書IDにする。",
     "5. 日本語で詳しく説明し、elements は8から18個。数式が有効な箇所は $...$ と $$...$$、\\frac{}{}、_{}、^{} を使う。",
-    "6. 外部API/localStorageは使わず、既存書式に合わせる。"
+    "6. data.js は JavaScript 文字列なので、markdown内の LaTeX コマンドはソース上で \\\\frac、\\\\mathrm、\\\\quad のようにバックスラッシュを二重にする。",
+    "7. 外部API/localStorageは使わず、既存書式に合わせる。"
   ].join("\n");
 }
 
@@ -359,7 +361,8 @@ function buildRegenerateCodexPrompt(doc) {
     "2. title, key, summary, markdown, elements, aliases, parentLinks, createdAt, updatedAt を入れる。",
     "3. createdAt と既存の親子リンク/linkedDocId は維持し、updatedAt は更新する。",
     "4. 日本語で詳しく説明し、elements は8から18個。数式が有効な箇所は $...$ と $$...$$、\\frac{}{}、_{}、^{} を使う。",
-    "5. 外部API/localStorageは使わず、更新後に data.js の構文を確認する。"
+    "5. data.js は JavaScript 文字列なので、markdown内の LaTeX コマンドはソース上で \\\\frac、\\\\mathrm、\\\\quad のようにバックスラッシュを二重にする。",
+    "6. 外部API/localStorageは使わず、更新後に data.js の構文を確認する。"
   ].join("\n");
 }
 

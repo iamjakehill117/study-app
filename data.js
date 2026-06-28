@@ -2933,8 +2933,8 @@ $$
 常温付近の代表値として
 
 $$
-c_{p,a} \\simeq 1.006,\quad
-h_{\\mathrm{fg},0} \\simeq 2501,\quad
+c_{p,a} \\simeq 1.006,\\quad
+h_{\\mathrm{fg},0} \\simeq 2501,\\quad
 c_{p,v} \\simeq 1.86 \\tag{15}
 $$
 

@@ -39,8 +39,9 @@ This is a static Japanese study wiki. It does not call an external AI API. Codex
 - Explain concepts comprehensively but avoid unnecessary verbosity.
 - Use equations where they help understanding.
 - Inline math uses `$...$`; display math uses `$$` on separate lines.
-- Use LaTeX-style notation such as `\frac{}{}`, `_{}`
-  and `^{}` so KaTeX can render it.
+- Use LaTeX-style notation such as `\frac{}{}`, `_{}`, and `^{}` so KaTeX can render it.
+- Because `data.js` stores markdown inside JavaScript strings, escape LaTeX command
+  backslashes in the source, such as `\\frac`, `\\mathrm`, and `\\quad`.
 - For formula derivation documents, keep the selected formula as `parentLinks.elementLabel`, but use a short readable derivation title instead of the long formula itself.
 - `elements` should usually contain 8 to 18 smaller prerequisite concepts.
 
